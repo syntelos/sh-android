@@ -1,0 +1,21 @@
+#!/bin/bash
+
+if [ -f android ]&&[ -x android ]
+then
+    if [ -d ${HOME}/bin ]
+    then
+	# (copy) &
+	#          (android test-self)
+	#
+	if cp -p android ${HOME}/bin && 2>/dev/null 1>&2 android test-self
+	then
+	    exit 0
+	else
+	    exit 1
+	fi
+    else
+	exit 1
+    fi
+else
+    exit 1
+fi

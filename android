@@ -1,0 +1,960 @@
+#!/bin/bash
+
+# (public)
+function usage {
+    cat<<EOF>&2
+
+Synopsis
+
+ $0 [directive]
+
+Directives
+
+  test-self           Perform the installation test.
+  test-env            Perform the environment test.
+  test-layout         Perform the file layout test.
+  read-conf           Read a named variable from 'android.txt'.
+  read-man            Read a named attribute (line) from 'AndroidManifest.xml'.
+  num-platform        Read "target sdk version" from the android manifest.
+  ver-tools           Print the most recent version of 'build-tools'.
+
+  file-aapt           Print the location of 'aapt'.
+  file-dx             Print the location of 'dx'.
+  file-signer         Print the location of 'apksigner'.
+  file-adb            Print the location of 'adb'.
+  file-platform       Print the path location for 'android.jar'.
+  file-man            Print the path location for 'AndroidManifest.xml'.
+
+  path-bootclass      Print the bootclasspath for 'javac'.
+  path-class          Print the classpath for 'javac'.
+  path-lib            Print the classpath derived from 'lib'.
+
+  dir-tools           Test the existence of SDK 'build-tools' and print.
+  dir-platform        Test the existence of the target platform and print.
+  dir-lib             Print the location of the 'lib' directory of dependencies.
+  dir-src             Print the location of the 'src' directory.
+  dir-res             Print the location of the 'res' directory.
+
+  list-sources        Print listing of JPL files found under 'src'.
+
+  init                Write configuration and keystore files.
+  gen-res             Generate code from resources.
+  compile             Compile JPL files from 'src' to 'obj' and 'bin'.
+  package             Package dex object binaries into 'bin'.
+  sign                Employ the configured keystore to sign the APK.
+  align               Align APK to machine.
+  build               Perform gen-res, compile, package, sign, and align.
+  install             Build then install APK via ADB (USB).
+
+Configuration
+
+  The file 'android.txt' located in an application root directory has
+  the general syntactic form of a java properties file, "name=value"
+  and "#" line comments.  
+
+  The following template expressions are replaced by the values
+  employed by the script.
+
+    %dir_platform%     Path location of android platform directory.
+    %file_platform%    Path location of 'android.jar' file.
+
+  The following is an example of a configuration file.
+
+    # 
+    # Configuration parameters recognized by 'android'.
+    # See https://github.com/syntelos/sh-android
+    #
+    extra_bootclasspath=%dir_platform%/android-support-v4-r7.jar
+    lib_dir=../lib
+
+
+  The following names are employed within the script.
+
+    extra_bootclasspath    A library path ':' for javac to append to
+                           '%file_platform%'.
+
+    src_dir                The location of the root of a JPL source code 
+                           namespace, e.g. "src" in the directory path
+                           "src/com/example/application".
+
+    res_dir                The location of the root of the resource file 
+                           namespace, e.g. "res" in the directory path
+                           "res/layout".
+
+    lib_dir                The location of the root of a java library  
+                           namespace, e.g. "lib" in the directory path
+                           "lib/example-dep-library.jar".
+
+    extra_classpath        A library path ':' for javac to append to the
+                           contents of <lib>.
+
+    keystore               Location of (private!) JKS keystore file.
+
+
+Caveats
+
+    This script (creates and) destroys the directories 'obj' and 'bin'.
+
+EOF
+    exit 1
+}
+# (public)
+function read_conf {
+    n="${1}"
+    if [ -n "${n}" ]&&[ -f android.txt ]&& test_env && fp=$(file_platform) && dp=$(dir_platform)
+    then
+	if v=$(2>/dev/null egrep -e "^${n}=" android.txt | sed -e 's/^.*=//; s/^://; s/:$//;' -e "s#%dir_platform%#${dp}#g; s#%file_platform%#${fp}#g;") &&[ -n "${v}" ]
+	then
+	    echo ${v}
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+# (private internal)
+function line_conf {
+    n="${1}"
+    if [ -n "${n}" ]&&[ -f android.txt ]
+    then
+	if lno=$(egrep -n "^${n}=" android.txt | sed 's/:.*//')&&[ -n "${lno}" ]&&[ 0 -lt ${lno} ]
+	then
+	    echo ${lno}
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+# (public)
+function init_conf {
+
+    if [ -f android.txt ]
+    then
+	return 0
+
+    elif cat<<EOF>android.txt
+# 
+# Configuration parameters recognized by 'android'.
+# See https://github.com/syntelos/sh-android
+#
+EOF
+    then
+	return 0
+    else
+	return 1
+    fi
+}
+# (private internal)
+function write_conf {
+    n="${1}"
+    v="${2}"
+    if init_conf && [ -n "${n}" -a -n "${v}" ]
+    then
+
+	if lno=$(line_conf ${n})
+	then
+	    if cat android.txt | sed -e "${lno}s#=.*#=${v}#;" > /tmp/tmp && cp /tmp/tmp android.txt
+	    then
+		return 0
+	    else
+		return 1
+	    fi
+	else
+	    echo "${n}=${v}" >> android.txt
+
+	    return 0
+	fi
+	return 0
+    else
+	return 1
+    fi
+}
+# (public)
+function read_man {
+    n="${1}"
+    if [ -n "${n}" ]&& test_layout && test_env && man=$(file_man)
+    then
+	grep "${n}" ${man} | awk '-F=' '{print $2}' | sed 's/"//; s/".*//;'
+
+	return 0;
+    else
+	return 1
+    fi
+}
+function test_env {
+
+    if [ -n "${ANDROID_HOME}" ]&&[ -d "${ANDROID_HOME}/platforms" ]
+    then
+	return 0
+    else
+	return 1
+    fi
+}
+function test_layout {
+
+    if 1>/dev/null file_man && 1>/dev/null dir_src && 1>/dev/null dir_res
+    then
+	return 0
+    else
+	return 1
+    fi
+}
+function test_self {
+    if a=$(2>/dev/null which android) && b=${HOME}/bin/android && [ "${a}" = "${b}" ]
+    then
+	return 0
+    else
+	return 1
+    fi
+}
+function num_platform {
+
+    if n=$(read_man 'android:targetSdkVersion' )
+    then
+	echo "${n}"
+
+	return 0
+    else
+	return 1
+    fi
+}
+function dir_platform {
+
+    if p=$(num_platform) &&[ -n "${p}" ]
+    then
+	pd="${ANDROID_HOME}/platforms/android-${p}"
+	if [ -d "${pd}" ]
+	then
+	    echo ${pd}
+	    return 0
+	else
+	    echo "$0 (dir-platform) error, missing platform: '${pd}'." >&2
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function ver_tools {
+
+    if test_env && 
+	v=$(ls "${ANDROID_HOME}/build-tools/" | sort -V | tail -n 1) &&
+	[ -n "${v}" ]
+    then
+	echo "${v}"
+
+	return 0
+    else
+	return 1
+    fi
+}
+function dir_tools {
+
+    if v=$(ver_tools)
+    then
+	td="${ANDROID_HOME}/build-tools/${v}"
+	if [ -d "${td}" ]
+	then
+	    echo ${td}
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function file_aapt {
+
+    if d=$(dir_tools)
+    then
+	t="${d}/aapt"
+
+	if [ -x "${t}" ]
+	then
+	    echo ${t} 
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function file_dx {
+
+    if d=$(dir_tools)
+    then
+	t="${d}/dx"
+
+	if [ -x "${t}" ]
+	then
+	    echo ${t} 
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function file_signer {
+
+    if d=$(dir_tools)
+    then
+	t="${d}/apksigner"
+
+	if [ -x "${t}" ]
+	then
+	    echo ${t} 
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function file_adb {
+
+    if test_env && d=${ANDROID_HOME}/platform-tools &&[ -d "${d}" ]
+    then
+	t="${d}/adb"
+
+	if [ -x "${t}" ]
+	then
+	    echo ${t} 
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function file_zipalign {
+
+    if d=$(dir_tools)
+    then
+	t="${d}/zipalign"
+
+	if [ -x "${t}" ]
+	then
+	    echo ${t} 
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function gen_res {
+
+    if fp=$(file_platform) && aapt=$(file_aapt)&& src=$(dir_src)&& man=$(file_man)&& res=$(dir_res)
+    then
+	cmd="${aapt} package -f -m -J ${src} -M ${man} -S ${res} -I ${fp}"
+	if ${cmd}
+	then
+	    return 0
+	else
+	    echo "$0 (gen-res) error from '${cmd}'." >&2
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function file_platform {
+    if test_env && p=$(dir_platform)
+    then
+	echo "${p}/android.jar" 
+
+	return 0
+    else
+	return 1
+    fi
+}
+function path_bootclass {
+    if test_env && fp=$(file_platform)
+    then
+
+	if extra=$(read_conf 'extra_bootclasspath')
+	then
+	    echo "${fp}:${extra}"
+	else
+	    echo "${fp}"
+	fi
+	return 0
+    else
+	return 1
+    fi
+}
+function file_man {
+
+    if [ -f AndroidManifest.xml ]
+    then
+	echo "AndroidManifest.xml"
+	return 0
+
+    elif f=$(find . -type f -name 'AndroidManifest.xml' | tail -n 1 )&&[ -f "${f}" ]
+    then
+	echo ${f}
+	return 0
+
+    else
+	return 1
+    fi
+}
+function dir_src {
+
+    if [ -d src ]
+    then
+	echo src
+	return 0
+
+    elif d=$(read_conf 'src_dir') &&[ -d "${d}" ]
+    then
+	echo ${d}
+
+	return 0
+
+    elif d=$(find . -type d -name java | tail -n 1 )&& [ -n "${d}" ]&& [ -n "$(find ${d} -type f -name '*.java')" ]
+    then
+	echo ${d}
+	return 0
+
+
+    else
+	return 1
+    fi
+}
+function dir_res {
+
+    if [ -d res ]
+    then
+	echo res
+	return 0
+
+    elif d=$(read_conf 'res_dir') &&[ -d "${d}" ]
+    then
+	echo ${d}
+
+	return 0
+
+    elif d=$(find . -type d -name res | tail -n 1 )&& [ -n "${d}" ]&& [ -n "$(find ${d} -type f -name '*.xml')" ]
+    then
+	echo ${d}
+	return 0
+
+
+    else
+	return 1
+    fi
+}
+function dir_lib {
+
+    if [ -d lib ]
+    then
+	echo lib
+	return 0
+
+    elif d=$(read_conf 'lib_dir') &&[ -d "${d}" ]
+    then
+	echo ${d}
+	return 0
+
+    else
+	return 1
+    fi
+}
+function path_lib {
+    if test_env
+    then
+	if ld=$(dir_lib) && flist=$(find ${ld} -name '*.jar' ) &&[ -n "${flist}" ]
+	then
+	    echo ${flist} | tr '\n' ':' | tr ' ' ':' | sed 's/:$//'
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function path_class {
+    if test_env
+    then
+	extra=$(read_conf 'extra_classpath')
+
+	if lp=$(path_lib)&& [ -n "${lp}" ]
+	then
+	    if [ -n "${extra}" ]
+	    then
+		echo "${lp}:${extra}"
+	    else
+		echo "${lp}"
+	    fi
+	    return 0
+
+	elif [ -n "${extra}" ]
+	then
+	    echo "${extra}"
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function list_sources {
+    if test_env && test_layout 
+    then
+	if s=$(dir_src)&& find "${s}" -type f -name '*.java'
+	then
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function compile {
+    if test_env && bcp=$(path_bootclass)&& cp=$(path_class)&& fli=$(list_sources)
+    then
+	if [ ! -d obj ]
+	then
+	    mkdir obj
+	fi
+
+	cmd="javac -source 1.7 -target 1.7 -d obj -cp ${cp} -bootclasspath ${bcp}"
+	if ${cmd} ${fli}
+	then
+
+	    if [ ! -d bin ]
+	    then
+		mkdir bin
+	    fi
+
+	    if dx=$(file_dx)
+	    then
+
+		cmd="${dx} --dex --output bin/classes.dex obj"
+		if ${cmd}
+		then
+		    rm -rf obj
+
+		    return 0
+		else
+		    echo "$0 (compile) error from '${cmd}'." >&2
+		    return 1
+		fi
+	    else
+		return 1
+	    fi
+	else
+	    echo "$0 (compile) error from '${cmd} src/*.java'." >&2
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function package {
+    if test_env && test_layout &&[ -d bin ]&&[ -f bin/classes.dex ]
+    then
+	if fp=$(file_platform) && aapt=$(file_aapt)&& man=$(file_man)&& res=$(dir_res)
+	then
+	    cmd="${aapt} package -f -m -F bin/unaligned.apk -M ${man} -S ${res} -I ${fp}"
+	    if ${cmd}
+	    then
+		cmd="${aapt} add bin/unaligned.apk bin/classes.dex"
+		if ${cmd}
+		then
+		    return 0
+		else
+		    echo "$0 (gen-res) error from '${cmd}'." >&2
+		    return 1
+		fi
+
+	    else
+		echo "$0 (gen-res) error from '${cmd}'." >&2
+		return 1
+	    fi
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function sign {
+    if test_env && ks=$(read_conf 'keystore') && si=$(file_signer)
+    then
+	cmd="${si} sign --ks ${ks} bin/unaligned.apk"
+
+	if ${cmd}
+	then
+	    return 0
+	else
+	    echo "$0 (sign) error from '${cmd}'." >&2
+
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function align {
+    if test_env && za=$(file_zipalign) && pa=$(read_man 'package')
+    then
+	cmd="${za} -f 4 bin/unaligned.apk ${pa}.apk"
+
+	if ${cmd}
+	then
+	    rm -rf bin
+
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+function build {
+
+    if gen_res && compile && package && sign && align
+    then
+	return 0
+    else
+	return 1
+    fi
+}
+function install {
+
+    if build && pa=$(read_man 'package')&& adb=$(file_adb)
+    then
+	cmd="${adb} install ${pa}.apk"
+
+	if ${cmd}
+	then
+	    return 0
+	else
+	    echo "$0 (install) error in '${cmd}'." >&2
+
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+# (see 'init')
+function gen_keystore {
+
+    if ks=$(read_conf 'keystore')&& [ -f "${ks}" ]
+    then
+	return 1
+
+    elif [ -n "${ks}" ]
+    then
+	if keytool -genkeypair -validity 365 -keystore "${ks}" -keyalg RSA -keysize 2048
+	then
+	    return 0
+	else
+	    return 1
+	fi
+
+    elif [ ! -f keystore ]
+    then
+	if write_conf keystore keystore &&
+	    keytool -genkeypair -validity 365 -keystore keystore -keyalg RSA -keysize 2048
+	then
+	    return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
+
+#
+#
+if [ -n "${1}" ]
+then
+    directive="${1}"
+    shift
+
+    case "${directive}" in
+	test-env)
+	    if test_env
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	test-layout)
+	    if test_layout
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	test-self)
+	    if test_self
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	read-conf)
+	    if read_conf "${1}"
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	read-man)
+	    if read_man "${1}"
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	num-platform)
+	    if num_platform
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	dir-platform)
+	    if dir_platform
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	ver-tools)
+	    if ver_tools
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	dir-tools)
+	    if dir_tools
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	file-aapt)
+	    if file_aapt
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	file-dx)
+	    if file_dx
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	file-signer)
+	    if file_signer
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	file-zipalign)
+	    if file_zipalign
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	file-adb)
+	    if file_adb
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	gen-res)
+	    if gen_res
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	gen-keystore)
+	    if gen_keystore
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	file-platform)
+	    if file_platform
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	file-man)
+	    if file_man
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	path-bootclass)
+	    if path_bootclass
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	path-class)
+	    if path_class
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	path-lib)
+	    if path_lib
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	dir-lib)
+	    if dir_lib
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	dir-src)
+	    if dir_src
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	dir-res)
+	    if dir_res
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	list-sources)
+	    if list_sources
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	init)
+	    if gen_keystore
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	compile)
+	    if compile
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	package)
+	    if package
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	sign)
+	    if sign
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	build)
+	    if build
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	install)
+	    if install
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	*)
+	    usage
+	    ;;
+    esac
+else
+    usage
+fi
