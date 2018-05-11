@@ -38,12 +38,12 @@ Directives
   list-sources        Print listing of JPL files found under 'src'.
 
   init                Write configuration and keystore files.
-  gen-res             Generate code from resources.
+  generate            Generate code from resources.
   compile             Compile JPL files from 'src' to 'obj' and 'bin'.
   package             Package dex object binaries into 'bin'.
   sign                Employ the configured keystore to sign the APK.
   align               Align APK to machine.
-  build               Perform gen-res, compile, package, sign, and align.
+  build               Perform generate, compile, package, sign, and align.
   install             Build then install APK via ADB (USB).
   clean               Drop 'obj' and 'bin' directories.
 
@@ -363,7 +363,7 @@ function file_zipalign {
 	return 1
     fi
 }
-function gen_res {
+function generate {
 
     if fp=$(file_platform) && aapt=$(file_aapt)&& src=$(dir_src)&& man=$(file_man)&& res=$(dir_res)
     then
@@ -372,7 +372,7 @@ function gen_res {
 	then
 	    return 0
 	else
-	    1>&2 echo "$0 (gen-res) error from '${cmd}'."
+	    1>&2 echo "$0 (generate) error from '${cmd}'."
 	    return 1
 	fi
     else
@@ -601,13 +601,13 @@ function package {
 		then
 		    return 0
 		else
-		    1>&2 echo "$0 (gen-res) error from '${cmd}'."
+		    1>&2 echo "$0 (generate) error from '${cmd}'."
 
 		    return 1
 		fi
 
 	    else
-		1>&2 echo "$0 (gen-res) error from '${cmd}'."
+		1>&2 echo "$0 (generate) error from '${cmd}'."
 
 		return 1
 	    fi
@@ -658,7 +658,7 @@ function align {
 }
 function build {
 
-    if gen_res && compile && package && sign && align
+    if generate && compile && package && sign && align
     then
 	return 0
     else
@@ -667,20 +667,7 @@ function build {
 }
 function install {
 
-    if pa=$(read_man 'package')&& [ -f ${pa}.apk ]&&[ ! -d bin ]&&[ ! -d obj ]&& adb=$(file_adb)
-    then
-	cmd="${adb} install ${pa}.apk"
-	1>&2 echo "${cmd}"
-
-	if ${cmd}
-	then
-	    return 0
-	else
-	    1>&2 echo "$0 (install) error in '${cmd}'."
-
-	    return 1
-	fi
-    elif build && adb=$(file_adb)
+    if build && pa=$(read_man 'package')&& adb=$(file_adb)
     then
 	cmd="${adb} install ${pa}.apk"
 	1>&2 echo "${cmd}"
@@ -872,8 +859,8 @@ then
 		exit 1
 	    fi
 	    ;;
-	gen-res)
-	    if gen_res
+	generate)
+	    if generate
 	    then
 		exit 0
 	    else
