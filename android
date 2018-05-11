@@ -619,7 +619,7 @@ function package {
     fi
 }
 function sign {
-    if test_env && ks=$(read_conf 'keystore') && si=$(file_signer) && pa=$(read_man 'package')
+    if test_env && ks=$(read_conf 'keystore') && si=$(file_signer) && pa=$(read_man 'package')&&[ -f bin/${pa}-unaligned.apk ]
     then
 	cmd="${si} sign --ks ${ks} bin/${pa}-unaligned.apk"
 	1>&2 echo "${cmd}"
@@ -637,7 +637,7 @@ function sign {
     fi
 }
 function align {
-    if test_env && za=$(file_zipalign) && pa=$(read_man 'package')
+    if test_env && za=$(file_zipalign) && pa=$(read_man 'package')&&[ -f bin/${pa}-unaligned.apk ]
     then
 	cmd="${za} -f 4 bin/${pa}-unaligned.apk ${pa}.apk"
 	1>&2 echo "${cmd}"
@@ -667,7 +667,7 @@ function build {
 }
 function install {
 
-    if build && pa=$(read_man 'package')&& adb=$(file_adb)
+    if build && pa=$(read_man 'package')&& adb=$(file_adb)&& [ -f "${pa}.apk" ]
     then
 	cmd="${adb} install ${pa}.apk"
 	1>&2 echo "${cmd}"
@@ -704,19 +704,30 @@ function gen_keystore {
 	    return 1
 	fi
 
-    elif [ ! -f keystore ]&& write_conf keystore keystore
-    then
-	cmd="keytool -genkeypair -validity 365 -keystore keystore -keyalg RSA -keysize 2048 -storetype pkcs12"
-	1>&2 echo "${cmd}"
+    else
+	ks=".keystore.pkcs12"
 
-	if ${cmd}
+	if write_conf keystore ${ks}
 	then
-	    return 0
+
+	    if [ ! -f ${ks} ]
+	    then
+		cmd="keytool -genkeypair -validity 365 -keystore ${ks} -keyalg RSA -keysize 2048 -storetype pkcs12"
+		1>&2 echo "${cmd}"
+
+		if ${cmd}
+		then
+		    return 0
+		else
+		    1>&2 echo "$0 error (gen_keystore) from '${cmd}'."
+		    return 1
+		fi
+	    else
+		return 1
+	    fi
 	else
 	    return 1
 	fi
-    else
-	return 1
     fi
 }
 function clean {
