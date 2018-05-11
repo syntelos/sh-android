@@ -45,6 +45,7 @@ Directives
   align               Align APK to machine.
   build               Perform gen-res, compile, package, sign, and align.
   install             Build then install APK via ADB (USB).
+  clean               Drop 'obj' and 'bin' directories.
 
 Configuration
 
@@ -544,6 +545,8 @@ function compile {
 	fi
 
 	cmd="javac -source 1.7 -target 1.7 -d obj -cp ${cp} -bootclasspath ${bcp}"
+	1>&2 echo "${cmd}"
+
 	if ${cmd} ${fli}
 	then
 
@@ -556,6 +559,8 @@ function compile {
 	    then
 
 		cmd="${dx} --dex --output bin/classes.dex obj"
+		1>&2 echo "${cmd}"
+
 		if ${cmd}
 		then
 		    rm -rf obj
@@ -570,7 +575,7 @@ function compile {
 		return 1
 	    fi
 	else
-	    1>&2 echo "$0 (compile) error from '${cmd} src/*.java'."
+	    1>&2 echo "$0 (compile) error from '${cmd}'."
 
 	    return 1
 	fi
@@ -581,12 +586,17 @@ function compile {
 function package {
     if test_env && test_layout &&[ -d bin ]&&[ -f bin/classes.dex ]
     then
-	if fp=$(file_platform) && aapt=$(file_aapt)&& man=$(file_man)&& res=$(dir_res)
+	if fp=$(file_platform) && aapt=$(file_aapt)&& man=$(file_man)&& res=$(dir_res) && pa=$(read_man 'package')
 	then
-	    cmd="${aapt} package -f -m -F bin/unaligned.apk -M ${man} -S ${res} -I ${fp}"
+
+	    cmd="${aapt} package -f -m -F bin/${pa}-unaligned.apk -M ${man} -S ${res} -I ${fp}"
+	    1>&2 echo "${cmd}"
+
 	    if ${cmd}
 	    then
-		cmd="${aapt} add bin/unaligned.apk bin/classes.dex"
+		cmd="${aapt} add bin/${pa}-unaligned.apk bin/classes.dex"
+		1>&2 echo "${cmd}"
+
 		if ${cmd}
 		then
 		    return 0
@@ -609,9 +619,10 @@ function package {
     fi
 }
 function sign {
-    if test_env && ks=$(read_conf 'keystore') && si=$(file_signer)
+    if test_env && ks=$(read_conf 'keystore') && si=$(file_signer) && pa=$(read_man 'package')
     then
-	cmd="${si} sign --ks ${ks} bin/unaligned.apk"
+	cmd="${si} sign --ks ${ks} bin/${pa}-unaligned.apk"
+	1>&2 echo "${cmd}"
 
 	if ${cmd}
 	then
@@ -628,7 +639,8 @@ function sign {
 function align {
     if test_env && za=$(file_zipalign) && pa=$(read_man 'package')
     then
-	cmd="${za} -f 4 bin/unaligned.apk ${pa}.apk"
+	cmd="${za} -f 4 bin/${pa}-unaligned.apk ${pa}.apk"
+	1>&2 echo "${cmd}"
 
 	if ${cmd}
 	then
@@ -655,9 +667,23 @@ function build {
 }
 function install {
 
-    if build && pa=$(read_man 'package')&& adb=$(file_adb)
+    if pa=$(read_man 'package')&& [ -f ${pa}.apk ]&&[ ! -d bin ]&&[ ! -d obj ]&& adb=$(file_adb)
     then
 	cmd="${adb} install ${pa}.apk"
+	1>&2 echo "${cmd}"
+
+	if ${cmd}
+	then
+	    return 0
+	else
+	    1>&2 echo "$0 (install) error in '${cmd}'."
+
+	    return 1
+	fi
+    elif build && adb=$(file_adb)
+    then
+	cmd="${adb} install ${pa}.apk"
+	1>&2 echo "${cmd}"
 
 	if ${cmd}
 	then
@@ -680,7 +706,9 @@ function gen_keystore {
 
     elif [ -n "${ks}" ]
     then
-	cmd="keytool -genkeypair -validity 365 -keystore '${ks}' -keyalg RSA -keysize 2048"
+	cmd="keytool -genkeypair -validity 365 -keystore '${ks}' -keyalg RSA -keysize 2048 -storetype pkcs12"
+	1>&2 echo "${cmd}"
+
 	if ${cmd}
 	then
 	    return 0
@@ -689,10 +717,12 @@ function gen_keystore {
 	    return 1
 	fi
 
-    elif [ ! -f keystore ]
+    elif [ ! -f keystore ]&& write_conf keystore keystore
     then
-	if write_conf keystore keystore &&
-	    keytool -genkeypair -validity 365 -keystore keystore -keyalg RSA -keysize 2048
+	cmd="keytool -genkeypair -validity 365 -keystore keystore -keyalg RSA -keysize 2048 -storetype pkcs12"
+	1>&2 echo "${cmd}"
+
+	if ${cmd}
 	then
 	    return 0
 	else
@@ -701,6 +731,25 @@ function gen_keystore {
     else
 	return 1
     fi
+}
+function clean {
+
+    if pa=$(read_man 'package')&& [ -f ${pa}.apk ]
+    then
+	rm -f ${pa}.apk
+    fi
+
+    if [ -d obj ]
+    then
+	rm -rf obj
+    fi
+
+    if [ -d bin ]
+    then
+	rm -rf bin
+    fi
+
+    return 0
 }
 
 #
@@ -951,8 +1000,24 @@ then
 		exit 1
 	    fi
 	    ;;
+	align)
+	    if align
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
 	install)
 	    if install
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	clean)
+	    if clean
 	    then
 		exit 0
 	    else
