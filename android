@@ -235,7 +235,7 @@ function dir_platform {
 	    echo ${pd}
 	    return 0
 	else
-	    echo "$0 (dir-platform) error, missing platform: '${pd}'." >&2
+	    1>&2 echo "$0 (dir-platform) error, missing platform: '${pd}'." 
 	    return 1
 	fi
     else
@@ -371,7 +371,7 @@ function gen_res {
 	then
 	    return 0
 	else
-	    echo "$0 (gen-res) error from '${cmd}'." >&2
+	    1>&2 echo "$0 (gen-res) error from '${cmd}'."
 	    return 1
 	fi
     else
@@ -562,14 +562,16 @@ function compile {
 
 		    return 0
 		else
-		    echo "$0 (compile) error from '${cmd}'." >&2
+		    1>&2 echo "$0 (compile) error from '${cmd}'."
+
 		    return 1
 		fi
 	    else
 		return 1
 	    fi
 	else
-	    echo "$0 (compile) error from '${cmd} src/*.java'." >&2
+	    1>&2 echo "$0 (compile) error from '${cmd} src/*.java'."
+
 	    return 1
 	fi
     else
@@ -589,12 +591,14 @@ function package {
 		then
 		    return 0
 		else
-		    echo "$0 (gen-res) error from '${cmd}'." >&2
+		    1>&2 echo "$0 (gen-res) error from '${cmd}'."
+
 		    return 1
 		fi
 
 	    else
-		echo "$0 (gen-res) error from '${cmd}'." >&2
+		1>&2 echo "$0 (gen-res) error from '${cmd}'."
+
 		return 1
 	    fi
 	else
@@ -613,7 +617,7 @@ function sign {
 	then
 	    return 0
 	else
-	    echo "$0 (sign) error from '${cmd}'." >&2
+	    1>&2 echo "$0 (sign) error from '${cmd}'."
 
 	    return 1
 	fi
@@ -632,6 +636,8 @@ function align {
 
 	    return 0
 	else
+	    1>&2 echo "$0 error (align) from '${cmd}'."
+
 	    return 1
 	fi
     else
@@ -657,7 +663,7 @@ function install {
 	then
 	    return 0
 	else
-	    echo "$0 (install) error in '${cmd}'." >&2
+	    1>&2 echo "$0 (install) error in '${cmd}'."
 
 	    return 1
 	fi
@@ -674,10 +680,12 @@ function gen_keystore {
 
     elif [ -n "${ks}" ]
     then
-	if keytool -genkeypair -validity 365 -keystore "${ks}" -keyalg RSA -keysize 2048
+	cmd="keytool -genkeypair -validity 365 -keystore '${ks}' -keyalg RSA -keysize 2048"
+	if ${cmd}
 	then
 	    return 0
 	else
+	    1>&2 echo "$0 error (gen_keystore) from '${cmd}'."
 	    return 1
 	fi
 
