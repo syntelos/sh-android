@@ -706,7 +706,7 @@ function gen_keystore {
 
     elif [ -n "${ks}" ]
     then
-	cmd="keytool -genkeypair -validity 365 -keystore '${ks}' -keyalg RSA -keysize 2048 -storetype pkcs12"
+	cmd="keytool -genkeypair -validity 365 -keystore ${ks} -keyalg RSA -keysize 2048 -storetype pkcs12"
 	1>&2 echo "${cmd}"
 
 	if ${cmd}
