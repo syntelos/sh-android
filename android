@@ -13,8 +13,8 @@ Directives
   test-self           Perform the installation test.
   test-env            Perform the environment test.
   test-layout         Perform the file layout test.
-  read-conf           Read a named variable from 'android.txt'.
-  read-man            Read a named attribute (line) from 'AndroidManifest.xml'.
+  read-conf <n>       Read a named variable from 'android.txt'.
+  read-man <n>        Read a named attribute (line) from 'AndroidManifest.xml'.
   num-platform        Read "target sdk version" from the android manifest.
   ver-tools           Print the most recent version of 'build-tools'.
 
@@ -45,6 +45,7 @@ Directives
   align               Align APK to machine.
   build               Perform generate, compile, package, sign, and align.
   install             Build then install APK via ADB (USB).
+  uninstall <n>       Uninstall application (package) <n>ame.
   clean               Drop 'obj' and 'bin' directories.
 
   list                Run 'aapt list' to list the contents of '<pkg>.apk'.
@@ -693,6 +694,26 @@ function install {
 	return 1
     fi
 }
+function uninstall {
+    n="${1}"
+
+    if [ -n "${n}" ]&& pa=$(read_man 'package')&& adb=$(file_adb)
+    then
+	cmd="${adb} uninstall ${n}"
+	1>&2 echo "${cmd}"
+
+	if ${cmd}
+	then
+	    return 0
+	else
+	    1>&2 echo "$0 (uninstall) error in '${cmd}'."
+
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
 # (see 'init')
 function gen_keystore {
 
@@ -1036,6 +1057,14 @@ then
 	    ;;
 	install)
 	    if install
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	uninstall)
+	    if uninstall "${1}"
 	    then
 		exit 0
 	    else
