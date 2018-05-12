@@ -1,0 +1,12 @@
+#!/bin/bash
+#
+# passive installation check
+#
+if a=$(md5sum android | awk '{print $1}') && b=$(md5sum $(which android) | awk '{print $1}') && [ "${a}" = "${b}" ]
+then
+    1>&2 echo OK
+    exit 0
+else
+    1>&2 echo NG
+    exit 1
+fi

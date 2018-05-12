@@ -47,6 +47,8 @@ Directives
   install             Build then install APK via ADB (USB).
   clean               Drop 'obj' and 'bin' directories.
 
+  list                Run 'aapt list' to list the contents of '<pkg>.apk'.
+
 Configuration
 
   The file 'android.txt' located in an application root directory has
@@ -586,6 +588,7 @@ function compile {
 function package {
     if test_env && test_layout &&[ -d bin ]&&[ -f bin/classes.dex ]
     then
+
 	if fp=$(file_platform) && aapt=$(file_aapt)&& man=$(file_man)&& res=$(dir_res) && pa=$(read_man 'package')
 	then
 
@@ -594,13 +597,19 @@ function package {
 
 	    if ${cmd}
 	    then
-		cmd="${aapt} add bin/${pa}-unaligned.apk bin/classes.dex"
+		cmd="${aapt} add bin/${pa}-unaligned.apk classes.dex"
 		1>&2 echo "${cmd}"
+
+		ln -s bin/classes.dex
 
 		if ${cmd}
 		then
+		    rm -f classes.dex
+
 		    return 0
 		else
+		    rm -f classes.dex
+
 		    1>&2 echo "$0 (generate) error from '${cmd}'."
 
 		    return 1
@@ -669,7 +678,7 @@ function install {
 
     if build && pa=$(read_man 'package')&& adb=$(file_adb)&& [ -f "${pa}.apk" ]
     then
-	cmd="${adb} install ${pa}.apk"
+	cmd="${adb} install -r ${pa}.apk"
 	1>&2 echo "${cmd}"
 
 	if ${cmd}
@@ -748,6 +757,25 @@ function clean {
     fi
 
     return 0
+}
+function list {
+
+    if fp=$(file_platform) && aapt=$(file_aapt)&& pa=$(read_man 'package')&&[ -f "${pa}.apk" ]
+    then
+
+	cmd="${aapt} list ${pa}.apk"
+
+	if ${cmd}
+	then
+	    return 0
+	else
+	    1>&2 echo "$0 (generate) error from '${cmd}'."
+
+	    return 1
+	fi
+    else
+	return 1
+    fi
 }
 
 #
@@ -1016,6 +1044,14 @@ then
 	    ;;
 	clean)
 	    if clean
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	list)
+	    if list
 	    then
 		exit 0
 	    else
