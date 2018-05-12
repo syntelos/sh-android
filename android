@@ -44,7 +44,7 @@ Directives
   sign                Employ the configured keystore to sign the APK.
   align               Align APK to machine.
   build               Perform generate, compile, package, sign, and align.
-  install             Build then install APK via ADB (USB).
+  install [-g]        Build then install APK via ADB (USB) (w/opt perms grant).
   uninstall <n>       Uninstall application (package) <n>ame.
   clean               Drop 'obj' and 'bin' directories.
 
@@ -676,10 +676,16 @@ function build {
     fi
 }
 function install {
+    g="${1}"
 
     if build && pa=$(read_man 'package')&& adb=$(file_adb)&& [ -f "${pa}.apk" ]
     then
-	cmd="${adb} install -r ${pa}.apk"
+	if [ -n "${g}" ]
+	then
+	    cmd="${adb} install -rg ${pa}.apk"
+	else
+	    cmd="${adb} install -r ${pa}.apk"
+	fi
 	1>&2 echo "${cmd}"
 
 	if ${cmd}
@@ -1056,7 +1062,7 @@ then
 	    fi
 	    ;;
 	install)
-	    if install
+	    if install "${1}"
 	    then
 		exit 0
 	    else
