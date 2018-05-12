@@ -72,3 +72,13 @@ Caveats
 
     This script (creates and) destroys application project (working
     directory) [sub] directories 'obj' and 'bin'.
+
+Credits
+
+    Written with the recipe found in...
+
+    "How to make Android apps without IDE from command line"
+    https://medium.com/@authmane512/how-to-build-an-apk-from-command-line-without-ide-7260e1e22676
+
+    by Authmane Terki, https://medium.com/@authmane512
+                       https://github.com/authmane512
