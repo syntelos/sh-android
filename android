@@ -89,6 +89,8 @@ Configuration
                            namespace, e.g. "lib" in the directory path
                            "lib/example-dep-library.jar".
 
+    classpath              A library path ':' for javac and dex to employ.
+
     extra_classpath        A library path ':' for javac to append to the
                            contents of <lib>.
 
@@ -503,24 +505,32 @@ function path_lib {
 function path_class {
     if test_env
     then
-	extra=$(read_conf 'extra_classpath')
-
-	if lp=$(path_lib)&& [ -n "${lp}" ]
+	
+	if cp=$(read_conf 'classpath')
 	then
-	    if [ -n "${extra}" ]
-	    then
-		echo "${lp}:${extra}"
-	    else
-		echo "${lp}"
-	    fi
-	    return 0
+	    echo ${cp}
 
-	elif [ -n "${extra}" ]
-	then
-	    echo "${extra}"
 	    return 0
 	else
-	    return 1
+	    extra=$(read_conf 'extra_classpath')
+
+	    if lp=$(path_lib)&& [ -n "${lp}" ]
+	    then
+		if [ -n "${extra}" ]
+		then
+		    echo "${lp}:${extra}"
+		else
+		    echo "${lp}"
+		fi
+		return 0
+
+	    elif [ -n "${extra}" ]
+	    then
+		echo "${extra}"
+		return 0
+	    else
+		return 1
+	    fi
 	fi
     else
 	return 1
@@ -560,17 +570,27 @@ function compile {
 
 	    if dx=$(file_dx)
 	    then
+		tmpf=/tmp/dx_list.$$
+		for src in obj $(echo ${cp} | sed 's/:/ /g;')
+		do
+		    echo $src >> ${tmpf}
+		done
 
-		cmd="${dx} --dex --output bin/classes.dex obj"
+		cmd="${dx} --dex --output bin/classes.dex --input-list=${tmpf}"
 		1>&2 echo "${cmd}"
 
 		if ${cmd}
 		then
+		    rm -f ${tmpf}
 		    rm -rf obj
 
 		    return 0
 		else
 		    1>&2 echo "$0 (compile) error from '${cmd}'."
+		    echo ${tmpf}
+		    cat -n ${tmpf}
+
+		    rm -f ${tmpf}
 
 		    return 1
 		fi
