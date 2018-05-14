@@ -45,7 +45,7 @@ Directives
   align               Align APK to machine.
   build               Perform generate, compile, package, sign, and align.
   install [-g]        Build then install APK via ADB (USB) (w/opt perms grant).
-  uninstall <n>       Uninstall application (package) <n>ame.
+  uninstall [n]       Uninstall application (w/opt package <n>ame).
   clean               Drop 'obj' and 'bin' directories.
 
   list                Run 'aapt list' to list the contents of '<pkg>.apk'.
@@ -95,6 +95,8 @@ Configuration
                            contents of <lib>.
 
     keystore               Location of (private!) JKS keystore file.
+
+    build-tools_version    Directory name "android_sdk/build-tools/<v>".
 
 
 Caveats
@@ -251,13 +253,22 @@ function dir_platform {
 }
 function ver_tools {
 
-    if test_env && 
-	v=$(ls "${ANDROID_HOME}/build-tools/" | sort -V | tail -n 1) &&
-	[ -n "${v}" ]
+    if test_env 
     then
-	echo "${v}"
+	if v=$(read_conf 'build-tools_version')
+	then
+	    echo "${v}"
 
-	return 0
+	    return 0
+
+	elif v=$(ls "${ANDROID_HOME}/build-tools/" | sort -V | tail -n 1) &&[ -n "${v}" ]
+	then
+	    echo "${v}"
+
+	    return 0
+	else
+	    return 1
+	fi
     else
 	return 1
     fi
@@ -724,18 +735,36 @@ function install {
 function uninstall {
     n="${1}"
 
-    if [ -n "${n}" ]&& pa=$(read_man 'package')&& adb=$(file_adb)
+    if adb=$(file_adb)
     then
-	cmd="${adb} uninstall ${n}"
-	1>&2 echo "${cmd}"
 
-	if ${cmd}
+	if [ -n "${n}" ]
 	then
-	    return 0
-	else
-	    1>&2 echo "$0 (uninstall) error in '${cmd}'."
+	    cmd="${adb} uninstall ${n}"
+	    1>&2 echo "${cmd}"
 
-	    return 1
+	    if ${cmd}
+	    then
+		return 0
+	    else
+		1>&2 echo "$0 (uninstall) error in '${cmd}'."
+
+		return 1
+	    fi
+
+	elif pa=$(read_man 'package')
+	then
+	    cmd="${adb} uninstall ${pa}"
+	    1>&2 echo "${cmd}"
+
+	    if ${cmd}
+	    then
+		return 0
+	    else
+		1>&2 echo "$0 (uninstall) error in '${cmd}'."
+
+		return 1
+	    fi
 	fi
     else
 	return 1
