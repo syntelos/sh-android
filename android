@@ -49,6 +49,7 @@ Directives
   clean               Drop 'obj' and 'bin' directories.
 
   list                Run 'aapt list' to list the contents of '<pkg>.apk'.
+  review              Dump tool state.
 
 Configuration
 
@@ -854,6 +855,53 @@ function list {
 	return 1
     fi
 }
+function review {
+
+    if test_env && test_layout
+    then
+	if vt=$(ver_tools)&& dt=$(dir_tools)&& 
+	    np=$(num_platform)&& dp=$(dir_platform)&&
+	    fp=$(file_platform) && aapt=$(file_aapt)&&
+	    adb=$(file_adb)&& za=$(file_zipalign)&& si=$(file_signer)&& dx=$(file_dx)&&
+	    pa=$(read_man 'package')&& 
+	    man=$(file_man)&& res=$(dir_res)&& src=$(dir_src)&& lib=$(dir_lib)&& 
+	    pl=$(path_lib)&& bcp=$(path_bootclass)&& cp=$(path_class)
+	then
+
+cat<<EOF
+
+ver-tools               ${vt}
+dir-tools               ${dt}
+file-aapt               ${aapt}
+file-zipalign           ${za}
+file-signer             ${si}
+file-dx                 ${dx}
+
+file-adb                ${adb}
+
+file-man                ${man}
+(read-man 'package')    ${pa}
+num-platform            ${np}
+dir-platform            ${dp}
+file-platform           ${fp}
+
+dir-src                 ${src}
+dir-lib                 ${lib}
+dir-res                 ${res}
+
+path-lib                ${pl}
+path-bootclass          ${bcp}
+path-class              ${cp}
+
+EOF
+            return 0
+	else
+	    return 1
+	fi
+    else
+	return 1
+    fi
+}
 
 #
 #
@@ -1137,6 +1185,14 @@ then
 	    ;;
 	list)
 	    if list
+	    then
+		exit 0
+	    else
+		exit 1
+	    fi
+	    ;;
+	review)
+	    if review
 	    then
 		exit 0
 	    else
