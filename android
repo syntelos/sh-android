@@ -185,9 +185,10 @@ function write_conf {
 # (public)
 function read_man {
     n="${1}"
-    if [ -n "${n}" ]&& test_layout && test_env && man=$(file_man)
+    if [ -n "${n}" ]&& test_layout && test_env && man=$(file_man) &&
+	v=$(grep "${n}" ${man} | awk '-F=' '{print $2}' | sed 's/"//; s/".*//;')&&[ -n "${v}" ]
     then
-	grep "${n}" ${man} | awk '-F=' '{print $2}' | sed 's/"//; s/".*//;'
+	echo "${v}"
 
 	return 0;
     else
@@ -222,7 +223,7 @@ function test_self {
 }
 function num_platform {
 
-    if n=$(read_man 'android:targetSdkVersion' )
+    if n=$(read_man 'targetSdkVersion' )
     then
 	echo "${n}"
 
