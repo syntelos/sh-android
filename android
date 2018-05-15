@@ -386,6 +386,8 @@ function generate {
     if fp=$(file_platform) && aapt=$(file_aapt)&& src=$(dir_src)&& man=$(file_man)&& res=$(dir_res)
     then
 	cmd="${aapt} package -f -m -J ${src} -M ${man} -S ${res} -I ${fp}"
+	1>&2 echo "${cmd}"
+
 	if ${cmd}
 	then
 	    return 0
