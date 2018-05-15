@@ -46,7 +46,7 @@ Directives
   build               Perform generate, compile, package, sign, and align.
   install [-g]        Build then install APK via ADB (USB) (w/opt perms grant).
   uninstall [n]       Uninstall application (w/opt package <n>ame).
-  clean               Drop 'obj' and 'bin' directories.
+  clean               Drop '*.apk' files, and 'obj' and 'bin' directories.
 
   list                Run 'aapt list' to list the contents of '<pkg>.apk'.
   review              Dump tool state.
@@ -819,9 +819,9 @@ function gen_keystore {
 }
 function clean {
 
-    if pa=$(read_man 'package')&& [ -f ${pa}.apk ]
+    if flist=$(2>/dev/null ls *.apk) &&[ -n "${flist}" ]
     then
-	rm -f ${pa}.apk
+	rm -f ${flist}
     fi
 
     if [ -d obj ]
