@@ -544,7 +544,7 @@ function path_class {
 		echo "${extra}"
 		return 0
 	    else
-		return 1
+		return 0
 	    fi
 	fi
     else
@@ -572,7 +572,12 @@ function compile {
 	    mkdir obj
 	fi
 
-	cmd="javac -source 1.7 -target 1.7 -d obj -cp ${cp} -bootclasspath ${bcp}"
+	if [ -n "${cp}" ]
+	then
+	    cmd="javac -source 1.7 -target 1.7 -d obj -cp ${cp} -bootclasspath ${bcp}"
+	else
+	    cmd="javac -source 1.7 -target 1.7 -d obj -bootclasspath ${bcp}"
+	fi
 	1>&2 echo "${cmd}"
 
 	if ${cmd} ${fli}
