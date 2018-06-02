@@ -27,11 +27,11 @@ Directives
 
   path-bootclass      Print the bootclasspath for 'javac'.
   path-class          Print the classpath for 'javac'.
-  path-lib            Print the classpath derived from 'lib'.
+  path-lib            Print the classpath derived from 'dir-lib'.
 
   dir-tools           Test the existence of SDK 'build-tools' and print.
   dir-platform        Test the existence of the target platform and print.
-  dir-lib             Print the location of the 'lib' directory of dependencies.
+  dir-lib             Print one or more 'lib' directories, configured and './lib'.
   dir-src             Print the location of the 'src' directory.
   dir-res             Print the location of the 'res' directory.
 
@@ -488,18 +488,21 @@ function dir_res {
 }
 function dir_lib {
 
+    rc=1
+
     if [ -d lib ]
     then
 	echo lib
-	return 0
 
-    elif d=$(read_conf 'lib_dir') &&[ -d "${d}" ]
+	rc=0
+    fi
+
+    if d=$(read_conf 'lib_dir') &&[ -d "${d}" ]
     then
 	echo ${d}
 	return 0
-
     else
-	return 1
+	return ${rc}
     fi
 }
 function path_lib {
